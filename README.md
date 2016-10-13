@@ -20,11 +20,12 @@ Using Homebrew will install all the dependencies for you:
 ### Source
 
 ```
-git clone https://github.com/tseemann/shovill.git
-./shovill/shovill -h
+git clone https://github.com/tseemann/berokka.git
+./berokka/berokka -h
 ```
 You will need to install all the dependencies manually:
-* BLAST+ 
+* BLAST+ => 2.3.0
+* SAMtools >= 1.3
 
 ## Usage
 
