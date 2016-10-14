@@ -6,7 +6,8 @@ Trim, circularise and orient long read bacterial genome assemblies
 There is already a good piece of software to trim/circularise and orient 
 genome assemblies called [Circlator](https://sanger-pathogens.github.io/circlator/).
 
-You should try Berokka when:
+You should try Berokka if:
+
 1. Circlator fails on your data even after [troubleshooting](https://github.com/sanger-pathogens/circlator/wiki/Troubleshooting)
 2. You only have the contig files and do not have the corrected reads anymore
 3. Your contigs are simple cases
