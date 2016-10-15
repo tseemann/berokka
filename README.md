@@ -3,15 +3,17 @@ Trim, circularise and orient long read bacterial genome assemblies
 
 ## Introduction
 
-There is already a good piece of software to trim/circularise and orient 
+There is already a good piece of software to trim/circularise and orient
 genome assemblies called [Circlator](https://sanger-pathogens.github.io/circlator/).
+Please try that first!
 
-You should try Berokka if:
+You should only try Berokka if:
 
-1. Circlator fails on your data even after [troubleshooting](https://github.com/sanger-pathogens/circlator/wiki/Troubleshooting)
-2. You only have the contig files and do not have the corrected reads anymore
-3. Your contigs are simple cases
-4. You can't get Circlator or its dependencies working for some reason
+1. You only have the contig files and do not have the corrected reads anymore
+2. Your contigs are simple cases with clear overhang and could be done manually with BLAST
+3. Circlator fails on your data even after [troubleshooting](https://github.com/sanger-pathogens/circlator/wiki/Troubleshooting)
+
+**NOTE:** orientation to *dnaA* or *rep* genes is not yet implemented.
 
 ## Installation
 
@@ -29,16 +31,48 @@ Using Homebrew will install all the dependencies for you:
 
 ```
 git clone https://github.com/tseemann/berokka.git
-./berokka/berokka -h
+./berokka/bin/berokka -h
 ```
 You will need to install all the dependencies manually:
-* [BioPerl](http://bioperl.org/) >= 1.6
-* [BLAST+](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) >= 2.4.0
-* [SAMtools](http://www.htslib.org/download/) >= 1.3
+* [BioPerl](http://bioperl.org/) >= 1.6 (for `Bio::SeqIO` and `Bio::SearchIO`)
+* [BLAST+](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) >= 2.3.0 (for `blastn`)
 
 ## Usage
 
-FIXME
+### Input
+
+Input should be completed long-read assemblies in FASTA format, such as those from
+[CANU](https://github.com/marbl/canu)
+or
+[HGAP](https://github.com/PacificBiosciences/Bioinformatics-Training/wiki/HGAP-in-SMRT-Analysis).
+
+### Command line
+
+```
+% berokka --outdir trimdir canu.contigs.fasta
+<snip>
+
+% ls trimdir/
+01.input.fa
+02.trimmed.fa
+03.results.tab
+
+% cat trimdir/03.results.tab
+
+#sequence   old_len new_len trimmed
+tig00000000 5461026 5448790 12237
+tig00000001  234319  207334 26986
+tig00000002  138825  113601 25225
+tig00000003   57075   43297 13779
+```
+
+### Output
+
+Filename | Format | Description
+---------|--------|--------------
+01.input.fa | FASTA | All the input sequences
+02.trimmed.fa | FASTA | The (possibly) trimmed sequences
+03.results.tab | TSV | Summary of results
 
 ## Etymology
 

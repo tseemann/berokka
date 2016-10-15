@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use Bio::SeqIO;
+use Bio::SearchIO;
 use Data::Dumper;
 use File::Path qw(make_path remove_tree);
 use File::Spec;
@@ -27,18 +28,20 @@ msg("Written by $AUTHOR");
 msg("Homepage is $URL");
 msg("Operating system is $OPSYS");
 msg("Local time is $starttime");
-msg("You ran: $0 @ARGV");
 }
+msg("You ran: $0 @ARGV");
 
 # Options
-my(@Options, $debug, $version, $force, $outdir, $tmpdir, $keepfiles);
+my(@Options, $debug, $version, $force, $outdir, $readlen, $keepfiles);
 setOptions();
 
 # Check options
 @ARGV or err("Please provide FASTA contig file(s)");
+my @FASTA = map { File::Spec->rel2abs($_) } @ARGV;
+$outdir or err("Please specify the output folder with --outdir");
 
 # Check we have the required binaries
-for my $exe (qw(blastn makeblastdb samtools)) {
+for my $exe (qw(blastn)) {
   my $fullexe = find_exe($exe);
   if ($fullexe) {
     msg("Using $exe - $fullexe");
@@ -52,26 +55,43 @@ for my $exe (qw(blastn makeblastdb samtools)) {
 make_folder($outdir);
 $outdir = File::Spec->rel2abs($outdir);
 
-msg("Changing into folder: $outdir");
+#msg("Changing into folder: $outdir");
 my $cwd = getcwd();
 chdir($outdir);
 
-my @ctg;
-for my $fname (@ARGV) {
+my $fout1 = Bio::SeqIO->new(-file=>">01.input.fa", -format=>'fasta');
+my $fout2 = Bio::SeqIO->new(-file=>">02.trimmed.fa", -format=>'fasta');
+open my $log, '>', "03.results.tab";
+print $log "#sequence\told_len\tnew_len\ttrimmed\n";
+my $nseq=0;
+for my $fname (@FASTA) {
   my $fasta = Bio::SeqIO->new(-file=>$fname, -format=>'fasta');
   while (my $seq = $fasta->next_seq) {
-    push @ctg, $seq
+    $nseq++;
+    msg("*** [$nseq]", $seq->id, "***");
+    $fout1->write_seq($seq);
+    my $new = check_overhang($nseq, $seq);
+    $fout2->write_seq( $new ? $new : $seq );
   }
 }
 
-msg("Loaded", 0+@ctg, "sequences.");
+#msg("Loaded $id sequences.");
 
 unless ($keepfiles) {
+  for my $i (1 .. $nseq) {
+    my(@patt) = ("$i.fa", "$i.head.fa", "$i.bls");
+    msg("Removing temporary files: @patt");
+    unlink @patt;
+  }
 }
 
+close $log;
+open LOG, "03.results.tab";
+print while (<LOG>);
 msg("Returning to original folder: $cwd");
 chdir($cwd);
 msg("Results in: $outdir");
+
 
 # Say our goodbyes
 my $endtime = localtime;
@@ -84,7 +104,7 @@ msg("Walltime used: $pretty");
 
 my @motd = (
   "May all your replicons circularise.",
-  "Publishing a genome with overhang is so embarassing.",
+  "Publishing a genome with overhang is so embarassing. Lucky you used $EXE !",
   "Found a bug? Post it at $URL/issues",
   "Have a suggestion? Tell me at $URL/issues",
   "The $EXE manual is at $URL/blob/master/README.md",
@@ -95,6 +115,51 @@ msg( $motd[ int(rand(scalar(@motd))) ] );
 msg("Done.");
 
 exit(0);
+
+
+#----------------------------------------------------------------------
+sub check_overhang {
+  my($id, $seq) = @_;
+  my $len = int( min($readlen*2, $seq->length/4) ); # FIXME: justify this!
+  msg("Using first $len bp to BLAST");
+  seq_to_fasta( "$id.fa", $seq );
+  seq_to_fasta( "$id.head.fa", $seq->trunc(1, $len) );
+  my $blastn_opt = "-evalue 1E-6 -dust no";
+  run_cmd("blastn -query $id.head.fa -subject $id.fa -out $id.bls $blastn_opt");
+  my $bls = Bio::SearchIO->new(-file=>"$id.bls", -format=>'blast');
+  my $res = $bls->next_result;
+  my $hit = $res->next_hit;
+  my $self_hsp = $hit->next_hsp; # 1st HSP is always to itself
+  my $hsp = $hit->next_hsp;      # 2nd HSP should be "best" hit
+  msg(
+    "blastn:",
+    $hsp->start('query')."..".$hsp->end('query')."/".$res->query_length,
+    "aligns to",
+    $hsp->start('subject')."..".$hsp->end('subject')."/".$hit->length,
+  );
+  if ($hsp->start('query') < 5 and $hsp->end('subject') == $hit->length) {
+    my $end =  $hsp->start('subject') - $hsp->start('query');
+    my $rem = $hit->length - $end + 1;
+    msg($res->query_name,"keep 1..$end/".$hit->length, "(remove $rem bp)");
+    print $log join("\t", $res->query_name, $hit->length, $end, $rem),"\n";
+    return $seq->trunc(1, $end);
+  }
+  else {
+    msg($res->query_name, "- COULD NOT TRIM");
+    print $log join("\t", $res->query_name, $hit->length, $hit->length, 0),"\n";
+    return;
+  }
+  return;
+}
+
+
+#----------------------------------------------------------------------
+sub seq_to_fasta {
+  my($fname, $seq) = @_;
+  msg("Writing", $seq->id, "(", $seq->length, "bp ) to $fname");
+  my $out = Bio::SeqIO->new(-file=>">$fname", -format=>'fasta', -flush=>1);
+  $out->write_seq($seq);
+}
 
 #----------------------------------------------------------------------
 sub make_folder {
@@ -132,7 +197,7 @@ sub find_exe {
 sub msg {
   print STDERR "@_\n";
 }
-      
+
 #----------------------------------------------------------------------
 sub err {
   msg(@_);
@@ -151,7 +216,7 @@ sub version {
   print "$EXE $VERSION\n";
   exit(0);
 }
-   
+
 #----------------------------------------------------------------------
 sub read_fasta {
   my($fname) = @_;
@@ -181,7 +246,7 @@ sub write_fasta {
   }
   close $FASTA;
 }
-   
+
 #----------------------------------------------------------------------
 # Option setting routines
 
@@ -193,8 +258,9 @@ sub setOptions {
     {OPT=>"debug!",  VAR=>\$debug, DEFAULT=>0, DESC=>"Debug info"},
     {OPT=>"version!",  VAR=>\&version, DESC=>"Print version and exit"},
     {OPT=>"outdir=s",  VAR=>\$outdir, DEFAULT=>'', DESC=>"Output folder"},
+    {OPT=>"readlen=i",  VAR=>\$readlen, DEFAULT=>20_000, DESC=>"Average read length"},
     {OPT=>"force!",  VAR=>\$force, DEFAULT=>0, DESC=>"Force overwite of existing"},
-    {OPT=>"tmpdir=s",  VAR=>\$tmpdir, DEFAULT=>$ENV{TMPDIR} || '/tmp', DESC=>"Fast temporary directory"},
+    #{OPT=>"tmpdir=s",  VAR=>\$tmpdir, DEFAULT=>$ENV{TMPDIR} || '/tmp', DESC=>"Fast temporary directory"},
     {OPT=>"keepfiles!",  VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
   );
 
@@ -219,5 +285,5 @@ sub usage {
   }
   exit(1);
 }
- 
+
 #----------------------------------------------------------------------
