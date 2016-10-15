@@ -1,0 +1,223 @@
+#!/usr/bin/env perl
+use strict;
+use Bio::SeqIO;
+use Data::Dumper;
+use File::Path qw(make_path remove_tree);
+use File::Spec;
+use File::Copy;
+use List::Util qw(min max);
+use Cwd;
+use File::Basename;
+use Time::Piece;
+use Time::Seconds;
+
+# Globals
+my $EXE = basename($0);
+my $VERSION = "0.1";
+my $URL = "https://github.com/tseemann/berokka";
+my $AUTHOR = 'Torsten Seemann <torsten.seemann@gmail.com>';
+my $OPSYS = $^O;
+
+# Say hello
+my $starttime = localtime;
+if(0) {
+msg("Hello", $ENV{USER} || 'stranger');
+msg("This is $EXE $VERSION");
+msg("Written by $AUTHOR");
+msg("Homepage is $URL");
+msg("Operating system is $OPSYS");
+msg("Local time is $starttime");
+msg("You ran: $0 @ARGV");
+}
+
+# Options
+my(@Options, $debug, $version, $force, $outdir, $tmpdir, $keepfiles);
+setOptions();
+
+# Check options
+@ARGV or err("Please provide FASTA contig file(s)");
+
+# Check we have the required binaries
+for my $exe (qw(blastn makeblastdb samtools)) {
+  my $fullexe = find_exe($exe);
+  if ($fullexe) {
+    msg("Using $exe - $fullexe");
+  }
+  else {
+    err("Could not find '$exe' - please install it.");
+  }
+}
+
+# Make output folder
+make_folder($outdir);
+$outdir = File::Spec->rel2abs($outdir);
+
+msg("Changing into folder: $outdir");
+my $cwd = getcwd();
+chdir($outdir);
+
+my @ctg;
+for my $fname (@ARGV) {
+  my $fasta = Bio::SeqIO->new(-file=>$fname, -format=>'fasta');
+  while (my $seq = $fasta->next_seq) {
+    push @ctg, $seq
+  }
+}
+
+msg("Loaded", 0+@ctg, "sequences.");
+
+unless ($keepfiles) {
+}
+
+msg("Returning to original folder: $cwd");
+chdir($cwd);
+msg("Results in: $outdir");
+
+# Say our goodbyes
+my $endtime = localtime;
+my $walltime = $endtime - $starttime;
+my $pretty = sprintf "%.2f minutes", $walltime->minutes;
+msg("Walltime used: $pretty");
+#msg("If you use this result please cite the Berokka paper:");
+#msg("Seemann T (2017) Berokka: simple contig circulorientation BioRxiv doi:XXXX-YYYY");
+#msg("Type '$EXE --citation' for more details.");
+
+my @motd = (
+  "May all your replicons circularise.",
+  "Publishing a genome with overhang is so embarassing.",
+  "Found a bug? Post it at $URL/issues",
+  "Have a suggestion? Tell me at $URL/issues",
+  "The $EXE manual is at $URL/blob/master/README.md",
+  "Did you know? $EXE is a play on the concept of overhang vs hangover",
+);
+srand( $$ + $walltime ); # seed
+msg( $motd[ int(rand(scalar(@motd))) ] );
+msg("Done.");
+
+exit(0);
+
+#----------------------------------------------------------------------
+sub make_folder {
+  my($outdir) = @_;
+  if (-d $outdir) {
+    if ($force) {
+      msg("Forced removal of existing --outdir $outdir (please wait)");
+      remove_tree($outdir);
+    }
+    else {
+      err("Folder '$outdir' already exists. Try using --force");
+    }
+  }
+  make_path($outdir);
+}
+
+#----------------------------------------------------------------------
+sub run_cmd {
+  my($cmd, $quiet) = @_;
+  msg("Running: $cmd") unless $quiet;
+  system($cmd)==0 or err("Error $? running command");
+}
+
+#----------------------------------------------------------------------
+sub find_exe {
+  my($bin) = shift;
+  for my $dir (File::Spec->path) {
+    my $exe = File::Spec->catfile($dir, $bin);
+    return $exe if -x $exe;
+  }
+  return;
+}
+
+#----------------------------------------------------------------------
+sub msg {
+  print STDERR "@_\n";
+}
+      
+#----------------------------------------------------------------------
+sub err {
+  msg(@_);
+  exit(1);
+}
+
+#----------------------------------------------------------------------
+sub num_cpus {
+  my($num)= qx(getconf _NPROCESSORS_ONLN); # POSIX
+  chomp $num;
+  return $num || 1;
+}
+
+#----------------------------------------------------------------------
+sub version {
+  print "$EXE $VERSION\n";
+  exit(0);
+}
+   
+#----------------------------------------------------------------------
+sub read_fasta {
+  my($fname) = @_;
+  my $seq;
+  my $id;
+  open my $FASTA, '<', $fname or err("Could not open $fname");
+  while (my $line = <$FASTA>) {
+    chomp $line;
+    if ($line =~ m/^>(\S+)/) {
+      $id = $1;
+      $seq->{$id} = '';
+    }
+    else {
+      $seq->{$id} .= $line;
+    }
+  }
+  close $FASTA;
+  return $seq;
+}
+
+#----------------------------------------------------------------------
+sub write_fasta {
+  my($fname, $seq) = @_;
+  open my $FASTA, '>', $fname or err("Could not write to $fname");
+  for my $id (sort { $a cmp $b } keys %{$seq}) {
+    print $FASTA ">$id\n", $seq->{$id}, "\n";
+  }
+  close $FASTA;
+}
+   
+#----------------------------------------------------------------------
+# Option setting routines
+
+sub setOptions {
+  use Getopt::Long;
+
+  @Options = (
+    {OPT=>"help",    VAR=>\&usage,             DESC=>"This help"},
+    {OPT=>"debug!",  VAR=>\$debug, DEFAULT=>0, DESC=>"Debug info"},
+    {OPT=>"version!",  VAR=>\&version, DESC=>"Print version and exit"},
+    {OPT=>"outdir=s",  VAR=>\$outdir, DEFAULT=>'', DESC=>"Output folder"},
+    {OPT=>"force!",  VAR=>\$force, DEFAULT=>0, DESC=>"Force overwite of existing"},
+    {OPT=>"tmpdir=s",  VAR=>\$tmpdir, DEFAULT=>$ENV{TMPDIR} || '/tmp', DESC=>"Fast temporary directory"},
+    {OPT=>"keepfiles!",  VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
+  );
+
+  (!@ARGV) && (usage());
+
+  &GetOptions(map {$_->{OPT}, $_->{VAR}} @Options) || usage();
+
+  # Now setup default values.
+  foreach (@Options) {
+    if (defined($_->{DEFAULT}) && !defined(${$_->{VAR}})) {
+      ${$_->{VAR}} = $_->{DEFAULT};
+    }
+  }
+}
+
+sub usage {
+  print "Usage:\n  $EXE [options] canu.contigs.fasta [another.fasta ...]\n";
+  print "Options:\n";
+  foreach (@Options) {
+    printf "  --%-13s %s%s.\n",$_->{OPT},$_->{DESC},
+           defined($_->{DEFAULT}) ? " (default '$_->{DEFAULT}')" : "";
+  }
+  exit(1);
+}
+ 
+#----------------------------------------------------------------------
