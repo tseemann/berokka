@@ -127,10 +127,10 @@ sub check_overhang {
   my $blastn_opt = "-evalue 1E-6 -dust no";
   run_cmd("blastn -query $id.head.fa -subject $id.fa -out $id.bls $blastn_opt");
   my $bls = Bio::SearchIO->new(-file=>"$id.bls", -format=>'blast');
-  my $res = $bls->next_result;
+  my $res = $bls->next_result or goto NOTRIM;
   my $hit = $res->next_hit;
   my $self_hsp = $hit->next_hsp; # 1st HSP is always to itself
-  my $hsp = $hit->next_hsp;      # 2nd HSP should be "best" hit
+  my $hsp = $hit->next_hsp or goto NOTRIM;      # 2nd HSP should be "best" hit
   msg(
     "blastn:",
     $hsp->start('query')."..".$hsp->end('query')."/".$res->query_length,
@@ -144,11 +144,9 @@ sub check_overhang {
     print $log join("\t", $res->query_name, $hit->length, $end, $rem),"\n";
     return $seq->trunc(1, $end);
   }
-  else {
-    msg($res->query_name, "- COULD NOT TRIM");
-    print $log join("\t", $res->query_name, $hit->length, $hit->length, 0),"\n";
-    return;
-  }
+NOTRIM:
+  msg($res->query_name, "- COULD NOT TRIM");
+  print $log join("\t", $res->query_name, $hit->length, $hit->length, 0),"\n";
   return;
 }
 
