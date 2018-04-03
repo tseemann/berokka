@@ -5,7 +5,7 @@ use Bio::SeqIO;
 use Bio::SearchIO;
 use Data::Dumper;
 use File::Spec;
-use File::Path qw(make_path remove_tree);
+use File::Path qw(make_path);
 use File::Temp qw(tempfile tempdir);
 use List::Util qw(min max);
 use File::Basename;
@@ -142,11 +142,10 @@ sub make_folder {
   my($outdir) = @_;
   if (-d $outdir) {
     if ($force) {
-      msg("Forced removal of existing --outdir $outdir (please wait)");
-      remove_tree($outdir);
+      msg("Will overwrite contents of --outdir $outdir as you asked.");
     }
     else {
-      err("Folder '$outdir' already exists. Try using --force");
+      err("Folder '$outdir' already exists. Try using the --force");
     }
   }
   make_path($outdir);
