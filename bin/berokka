@@ -19,6 +19,7 @@ my $URL = "https://github.com/tseemann/berokka";
 my $AUTHOR = 'Torsten Seemann <torsten.seemann@gmail.com>';
 my $OPSYS = $^O;
 
+
 # Say hello
 my $starttime = localtime;
 if(0) {
@@ -120,7 +121,7 @@ exit(0);
 #----------------------------------------------------------------------
 sub check_overhang {
   my($id, $seq) = @_;
-  my $len = int( min($readlen*2, $seq->length/4) ); # FIXME: justify this!
+  my $len = int( min( $seq->length, $readlen) );
   msg("Using first $len bp to BLAST");
   seq_to_fasta( "$id.fa", $seq );
   seq_to_fasta( "$id.head.fa", $seq->trunc(1, $len) );
@@ -130,21 +131,25 @@ sub check_overhang {
   my $res = $bls->next_result or goto NOTRIM;
   my $hit = $res->next_hit;
   my $self_hsp = $hit->next_hsp; # 1st HSP is always to itself
-  my $hsp = $hit->next_hsp or goto NOTRIM;      # 2nd HSP should be "best" hit
-  msg(
-    "blastn:",
-    $hsp->start('query')."..".$hsp->end('query')."/".$res->query_length,
-    "aligns to",
-    $hsp->start('subject')."..".$hsp->end('subject')."/".$hit->length,
-  );
-  if ($hsp->start('query') < 5 and $hsp->end('subject') == $hit->length) {
-    my $end =  $hsp->start('subject') - $hsp->start('query');
-    my $rem = $hit->length - $end + 1;
-    msg($res->query_name,"keep 1..$end/".$hit->length, "(remove $rem bp)");
-    print $log join("\t", $res->query_name, $hit->length, $end, $rem),"\n";
-    return $seq->trunc(1, $end);
+
+  while (my $hsp = $hit->next_hsp) {
+    msg(
+      "blastn:",
+      $hsp->start('query')."..".$hsp->end('query')."/".$res->query_length,
+      "aligns to",
+      $hsp->start('subject')."..".$hsp->end('subject')."/".$hit->length,
+      "at",
+      sprintf("%.1f %%id", 100*$hsp->frac_identical('total') ),
+    );
+    if ($hsp->start('query') < 5 and $hsp->end('subject') == $hit->length) {
+      my $end =  $hsp->start('subject') - $hsp->start('query');
+      my $rem = $hit->length - $end + 1;
+      msg($res->query_name,"keep 1..$end/".$hit->length, "(remove $rem bp)");
+      print $log join("\t", $res->query_name, $hit->length, $end, $rem),"\n";
+      return $seq->trunc(1, $end);
+    }
   }
-NOTRIM:
+
   msg($res->query_name, "- COULD NOT TRIM");
   print $log join("\t", $res->query_name, $hit->length, $hit->length, 0),"\n";
   return;
@@ -256,9 +261,8 @@ sub setOptions {
     {OPT=>"debug!",  VAR=>\$debug, DEFAULT=>0, DESC=>"Debug info"},
     {OPT=>"version!",  VAR=>\&version, DESC=>"Print version and exit"},
     {OPT=>"outdir=s",  VAR=>\$outdir, DEFAULT=>'', DESC=>"Output folder"},
-    {OPT=>"readlen=i",  VAR=>\$readlen, DEFAULT=>20_000, DESC=>"Average read length"},
+    {OPT=>"readlen=i",  VAR=>\$readlen, DEFAULT=>30_000, DESC=>"Approximat read length"},
     {OPT=>"force!",  VAR=>\$force, DEFAULT=>0, DESC=>"Force overwite of existing"},
-    #{OPT=>"tmpdir=s",  VAR=>\$tmpdir, DEFAULT=>$ENV{TMPDIR} || '/tmp', DESC=>"Fast temporary directory"},
     {OPT=>"keepfiles!",  VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
   );
 
