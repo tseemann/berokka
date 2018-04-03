@@ -1,14 +1,15 @@
 #!/usr/bin/env perl
 use strict;
+use FindBin;
 use Bio::SeqIO;
 use Bio::SearchIO;
 use Data::Dumper;
-use FindBin;
+use File::Spec;
 use File::Path qw(make_path remove_tree);
 use File::Temp qw(tempfile tempdir);
 use List::Util qw(min max);
-use Cwd;
 use File::Basename;
+use Cwd;
 
 # Globals
 my $EXE = basename($0);
@@ -224,15 +225,15 @@ sub setOptions {
   use Getopt::Long;
 
   @Options = (
-    {OPT=>"help",    VAR=>\&usage,             DESC=>"This help"},
-    {OPT=>"debug!",  VAR=>\$debug, DEFAULT=>0, DESC=>"Debug info"},
-    {OPT=>"version!",  VAR=>\&version, DESC=>"Print version and exit"},
-    {OPT=>"check!",  VAR=>\$check, DESC=>"Check dependencies and exit"},
-    {OPT=>"test!",  VAR=>\&run_test, DESC=>"Run a small test and exit"},
-    {OPT=>"outdir=s",  VAR=>\$outdir, DEFAULT=>'', DESC=>"Output folder"},
-    {OPT=>"readlen=i",  VAR=>\$readlen, DEFAULT=>30_000, DESC=>"Approximate read length"},
-    {OPT=>"force!",  VAR=>\$force, DEFAULT=>0, DESC=>"Force overwite of existing"},
-    {OPT=>"keepfiles!",  VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
+    {OPT=>"help",       VAR=>\&usage,     DESC=>"This help"},
+    {OPT=>"debug!",     VAR=>\$debug,     DEFAULT=>0, DESC=>"Debug info"},
+    {OPT=>"version!",   VAR=>\&version,   DESC=>"Print version and exit"},
+    {OPT=>"check!",     VAR=>\$check,     DESC=>"Check dependencies and exit"},
+    {OPT=>"test!",      VAR=>\&run_test,  DESC=>"Run a small test and exit"},
+    {OPT=>"outdir=s",   VAR=>\$outdir,    DEFAULT=>'', DESC=>"Output folder"},
+    {OPT=>"readlen=i",  VAR=>\$readlen,   DEFAULT=>30_000, DESC=>"Approximate read length"},
+    {OPT=>"force!",     VAR=>\$force,     DEFAULT=>0, DESC=>"Force overwite of existing"},
+    {OPT=>"keepfiles!", VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
   );
 
   @ARGV or usage(1);
@@ -257,7 +258,7 @@ sub usage {
   print "  $EXE [options] canu.contigs.fasta [another.fasta ...]\n";
   print "OPTIONS\n";
   foreach (@Options) {
-     my $opt = $_->{OPT};
+    my $opt = $_->{OPT};
     $opt =~ s/!$//;
     $opt =~ s/=s$/ [X]/;
     $opt =~ s/=i$/ [N]/;
