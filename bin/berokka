@@ -17,24 +17,16 @@ my $URL = "https://github.com/tseemann/berokka";
 my $AUTHOR = 'Torsten Seemann';
 
 # Options
-my(@Options, $debug, $version, $force, $outdir, $readlen, $keepfiles);
+my(@Options, $debug, $version, $force, $check,
+             $outdir, $readlen, $keepfiles);
 setOptions();
 
 # Check options
+check_deps(1) if $check;
 @ARGV or err("Please provide FASTA contig file(s)");
 my @FASTA = map { File::Spec->rel2abs($_) } @ARGV;
 $outdir or err("Please specify the output folder with --outdir");
-
-# Check we have the required binaries
-for my $exe (qw(blastn)) {
-  my $fullexe = find_exe($exe);
-  if ($fullexe) {
-    msg("Using $exe - $fullexe");
-  }
-  else {
-    err("Could not find '$exe' - please install it.");
-  }
-}
+check_deps();
 
 # Make output folder
 make_folder($outdir);
@@ -159,14 +151,34 @@ sub make_folder {
 }
 
 #----------------------------------------------------------------------
-sub run_cmd {
+sub check_deps ($) {
+  my($exit) = @_;
+  msg("Checking dependencies of $EXE:") if $exit;
+  # Check we have the required binaries
+  for my $exe (qw(blastn)) {
+    my $fullexe = find_exe($exe);
+    if ($fullexe) {
+      msg("Using $exe - $fullexe");
+    }
+    else {
+      err("Could not find '$exe' - please install it.");
+    }
+  }
+  if ($exit) {
+    msg("Ok.");
+    exit(0);
+  }
+}
+
+#----------------------------------------------------------------------
+sub run_cmd ($) {
   my($cmd, $quiet) = @_;
   msg("Running: $cmd") unless $quiet;
   system($cmd)==0 or err("Error $? running command");
 }
 
 #----------------------------------------------------------------------
-sub find_exe {
+sub find_exe ($) {
   my($bin) = shift;
   for my $dir (File::Spec->path) {
     my $exe = File::Spec->catfile($dir, $bin);
@@ -202,6 +214,7 @@ sub setOptions {
     {OPT=>"help",    VAR=>\&usage,             DESC=>"This help"},
     {OPT=>"debug!",  VAR=>\$debug, DEFAULT=>0, DESC=>"Debug info"},
     {OPT=>"version!",  VAR=>\&version, DESC=>"Print version and exit"},
+    {OPT=>"check!",  VAR=>\$check, DESC=>"Check dependencies and exit"},
     {OPT=>"outdir=s",  VAR=>\$outdir, DEFAULT=>'', DESC=>"Output folder"},
     {OPT=>"readlen=i",  VAR=>\$readlen, DEFAULT=>30_000, DESC=>"Approximate read length"},
     {OPT=>"force!",  VAR=>\$force, DEFAULT=>0, DESC=>"Force overwite of existing"},
