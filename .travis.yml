@@ -1,0 +1,22 @@
+language: perl
+
+sudo: false
+
+perl:
+    - "5.26"
+    
+addons:
+    apt:
+        packages:
+            - bioperl
+            - ncbi-blast+
+
+install:
+    - "export PATH=$PWD/bin:$PATH"
+
+script:
+    - "berokka --version"
+    - "berokka --help"
+    - "! berokka --doesnotexist"
+    - "berokka --check"
+    - "berokka --test"
