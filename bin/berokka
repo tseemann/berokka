@@ -9,28 +9,12 @@ use File::Copy;
 use List::Util qw(min max);
 use Cwd;
 use File::Basename;
-use Time::Piece;
-use Time::Seconds;
 
 # Globals
 my $EXE = basename($0);
 my $VERSION = "0.2-dev";
 my $URL = "https://github.com/tseemann/berokka";
-my $AUTHOR = 'Torsten Seemann <torsten.seemann@gmail.com>';
-my $OPSYS = $^O;
-
-
-# Say hello
-my $starttime = localtime;
-if(0) {
-msg("Hello", $ENV{USER} || 'stranger');
-msg("This is $EXE $VERSION");
-msg("Written by $AUTHOR");
-msg("Homepage is $URL");
-msg("Operating system is $OPSYS");
-msg("Local time is $starttime");
-}
-msg("You ran: $0 @ARGV");
+my $AUTHOR = 'Torsten Seemann';
 
 # Options
 my(@Options, $debug, $version, $force, $outdir, $readlen, $keepfiles);
@@ -95,14 +79,6 @@ msg("Results in: $outdir");
 
 
 # Say our goodbyes
-my $endtime = localtime;
-my $walltime = $endtime - $starttime;
-my $pretty = sprintf "%.2f minutes", $walltime->minutes;
-msg("Walltime used: $pretty");
-#msg("If you use this result please cite the Berokka paper:");
-#msg("Seemann T (2017) Berokka: simple contig circulorientation BioRxiv doi:XXXX-YYYY");
-#msg("Type '$EXE --citation' for more details.");
-
 my @motd = (
   "May all your replicons circularise.",
   "Publishing a genome with overhang is so embarassing. Lucky you used $EXE !",
@@ -111,7 +87,7 @@ my @motd = (
   "The $EXE manual is at $URL/blob/master/README.md",
   "Did you know? $EXE is a play on the concept of overhang vs hangover",
 );
-srand( $$ + $walltime ); # seed
+srand( $$ ); # seed
 msg( $motd[ int(rand(scalar(@motd))) ] );
 msg("Done.");
 
@@ -158,7 +134,6 @@ sub check_overhang {
   print $log join("\t", $res->query_name, $hit->length, $hit->length, 0),"\n";
   return;
 }
-
 
 #----------------------------------------------------------------------
 sub seq_to_fasta {
@@ -212,46 +187,9 @@ sub err {
 }
 
 #----------------------------------------------------------------------
-sub num_cpus {
-  my($num)= qx(getconf _NPROCESSORS_ONLN); # POSIX
-  chomp $num;
-  return $num || 1;
-}
-
-#----------------------------------------------------------------------
 sub version {
   print "$EXE $VERSION\n";
   exit(0);
-}
-
-#----------------------------------------------------------------------
-sub read_fasta {
-  my($fname) = @_;
-  my $seq;
-  my $id;
-  open my $FASTA, '<', $fname or err("Could not open $fname");
-  while (my $line = <$FASTA>) {
-    chomp $line;
-    if ($line =~ m/^>(\S+)/) {
-      $id = $1;
-      $seq->{$id} = '';
-    }
-    else {
-      $seq->{$id} .= $line;
-    }
-  }
-  close $FASTA;
-  return $seq;
-}
-
-#----------------------------------------------------------------------
-sub write_fasta {
-  my($fname, $seq) = @_;
-  open my $FASTA, '>', $fname or err("Could not write to $fname");
-  for my $id (sort { $a cmp $b } keys %{$seq}) {
-    print $FASTA ">$id\n", $seq->{$id}, "\n";
-  }
-  close $FASTA;
 }
 
 #----------------------------------------------------------------------
@@ -265,12 +203,12 @@ sub setOptions {
     {OPT=>"debug!",  VAR=>\$debug, DEFAULT=>0, DESC=>"Debug info"},
     {OPT=>"version!",  VAR=>\&version, DESC=>"Print version and exit"},
     {OPT=>"outdir=s",  VAR=>\$outdir, DEFAULT=>'', DESC=>"Output folder"},
-    {OPT=>"readlen=i",  VAR=>\$readlen, DEFAULT=>30_000, DESC=>"Approximat read length"},
+    {OPT=>"readlen=i",  VAR=>\$readlen, DEFAULT=>30_000, DESC=>"Approximate read length"},
     {OPT=>"force!",  VAR=>\$force, DEFAULT=>0, DESC=>"Force overwite of existing"},
     {OPT=>"keepfiles!",  VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
   );
 
-  (!@ARGV) && (usage());
+  @ARGV or usage(1);
 
   &GetOptions(map {$_->{OPT}, $_->{VAR}} @Options) || usage();
 
@@ -283,13 +221,25 @@ sub setOptions {
 }
 
 sub usage {
-  print "Usage:\n  $EXE [options] canu.contigs.fasta [another.fasta ...]\n";
-  print "Options:\n";
+  my($exitcode) = @_;
+  $exitcode = 0 if !defined($exitcode) or $exitcode eq 'help'; # what gets passed by getopt func
+  select STDERR if $exitcode; # write to STDERR if exitcode is error
+
+  print "SYNOPSIS\n  Filter, trim, circularise & orient long read assemblies\n";
+  print "USAGE\n";
+  print "  $EXE [options] canu.contigs.fasta [another.fasta ...]\n";
+  print "OPTIONS\n";
   foreach (@Options) {
-    printf "  --%-13s %s%s.\n",$_->{OPT},$_->{DESC},
+     my $opt = $_->{OPT};
+    $opt =~ s/!$//;
+    $opt =~ s/=s$/ [X]/;
+    $opt =~ s/=i$/ [N]/;
+    $opt =~ s/=f$/ [n.n]/;
+    printf "  --%-13s %s%s.\n", $opt, $_->{DESC},
            defined($_->{DEFAULT}) ? " (default '$_->{DEFAULT}')" : "";
   }
-  exit(1);
+  print "AUTHOR\n  $AUTHOR | $URL\n";
+  exit($exitcode);
 }
 
 #----------------------------------------------------------------------
