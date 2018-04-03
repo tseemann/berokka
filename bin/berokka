@@ -3,9 +3,9 @@ use strict;
 use Bio::SeqIO;
 use Bio::SearchIO;
 use Data::Dumper;
+use FindBin;
 use File::Path qw(make_path remove_tree);
-use File::Spec;
-use File::Copy;
+use File::Temp qw(tempfile tempdir);
 use List::Util qw(min max);
 use Cwd;
 use File::Basename;
@@ -15,9 +15,10 @@ my $EXE = basename($0);
 my $VERSION = "0.2-dev";
 my $URL = "https://github.com/tseemann/berokka";
 my $AUTHOR = 'Torsten Seemann';
+my $APPDIR = "$FindBin::RealBin/..";
 
 # Options
-my(@Options, $debug, $version, $force, $check,
+my(@Options, $debug, $version, $force, $check, $test,
              $outdir, $readlen, $keepfiles);
 setOptions();
 
@@ -171,6 +172,18 @@ sub check_deps ($) {
 }
 
 #----------------------------------------------------------------------
+sub run_test {
+  my $outdir = tempdir()."/$EXE";
+  my $cmd = "$0 --force --outdir $outdir \Q$APPDIR/test/test.fa\E";
+  run_cmd($cmd);  # will die with errorcode if a problem
+  for my $outfile (qw(01.input.fa 02.trimmed.fa 03.results.tab)) {
+    -r "$outdir/$outfile" && -s _ or err("Could not see: $outfile");
+  }
+  msg("Test passed succesfully.");
+  exit(0); 
+}
+
+#----------------------------------------------------------------------
 sub run_cmd ($) {
   my($cmd, $quiet) = @_;
   msg("Running: $cmd") unless $quiet;
@@ -215,6 +228,7 @@ sub setOptions {
     {OPT=>"debug!",  VAR=>\$debug, DEFAULT=>0, DESC=>"Debug info"},
     {OPT=>"version!",  VAR=>\&version, DESC=>"Print version and exit"},
     {OPT=>"check!",  VAR=>\$check, DESC=>"Check dependencies and exit"},
+    {OPT=>"test!",  VAR=>\&run_test, DESC=>"Run a small test and exit"},
     {OPT=>"outdir=s",  VAR=>\$outdir, DEFAULT=>'', DESC=>"Output folder"},
     {OPT=>"readlen=i",  VAR=>\$readlen, DEFAULT=>30_000, DESC=>"Approximate read length"},
     {OPT=>"force!",  VAR=>\$force, DEFAULT=>0, DESC=>"Force overwite of existing"},
