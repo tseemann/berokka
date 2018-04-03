@@ -1,5 +1,7 @@
+[![Build Status](https://travis-ci.org/tseemann/berokka.svg?branch=master)](https://travis-ci.org/tseemann/berokka) [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 # berokka
-Trim, circularise and orient long read bacterial genome assemblies
+Trim, circularise, orient & filter long read bacterial genome assemblies
 
 ## Introduction
 
@@ -13,22 +15,24 @@ You should only try Berokka if:
 2. Your contigs are simple cases with clear overhang and could be done manually with BLAST
 3. Circlator fails on your data even after [troubleshooting](https://github.com/sanger-pathogens/circlator/wiki/Troubleshooting)
 
-**NOTE:** orientation to *dnaA* or *rep* genes is not yet implemented.
+**NOTE:** orientation to *dnaA* or *rep* genes is not yet implemented,
+nor is filtering against Pacbio control sequences.
 
 ## Installation
 
 ### Homebrew
-
-```
-brew tap homebrew/science
-brew tap tseemann/bioinformatics-linux
-brew install berokka
-```
 Using Homebrew will install all the dependencies for you:
 [Linux](http://linuxbrew.sh) or [MacOS](http://brew.sh)
+```
+brew install brewsci/bio/berokka  # COMING SOON!
+```
+
+### Conda
+```
+conda -c bioconda -c conda-forge berokka  # COMING SOON!
+```
 
 ### Source
-
 ```
 git clone https://github.com/tseemann/berokka.git
 ./berokka/bin/berokka -h
