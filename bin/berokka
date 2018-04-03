@@ -134,14 +134,18 @@ sub check_overhang {
 
   while (my $hsp = $hit->next_hsp) {
     msg(
-      "blastn:",
-      $hsp->start('query')."..".$hsp->end('query')."/".$res->query_length,
+      "blastn:", $hsp->start('query')."..".$hsp->end('query')."/".$res->query_length,
+      "(".($hsp->strand('query') > 0 ? '+' : '-').")",
       "aligns to",
       $hsp->start('subject')."..".$hsp->end('subject')."/".$hit->length,
+      "(".($hsp->strand('subject') > 0 ? '+' : '-').")",
       "at",
       sprintf("%.1f %%id", 100*$hsp->frac_identical('total') ),
     );
-    if ($hsp->start('query') < 5 and $hsp->end('subject') == $hit->length) {
+    if ($hsp->start('query') < 5
+        and $hsp->end('subject') == $hit->length
+        and $hsp->strand('query') > 0
+        and $hsp->strand('subject') > 0) {
       my $end =  $hsp->start('subject') - $hsp->start('query');
       my $rem = $hit->length - $end + 1;
       msg($res->query_name,"keep 1..$end/".$hit->length, "(remove $rem bp)");
