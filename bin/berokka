@@ -20,7 +20,7 @@ my $APPDIR = "$FindBin::RealBin/..";
 
 # Options
 my(@Options, $debug, $version, $force, $check, $test,
-             $outdir, $readlen, $keepfiles);
+             $outdir, $readlen, $keepfiles, $noanno);
 setOptions();
 
 # Check options
@@ -120,7 +120,15 @@ sub check_overhang {
       my $rem = $hit->length - $end + 1;
       msg($res->query_name,"keep 1..$end/".$hit->length, "(remove $rem bp)");
       print $log join("\t", $res->query_name, $hit->length, $end, $rem),"\n";
-      return $seq->trunc(1, $end);
+      my $fixed = $seq->trunc(1, $end);
+      unless ($noanno) {
+        my $desc = $seq->desc();
+        $desc =~ s/\blen=(\d+)\b/len=$end/;
+        $desc =~ s/\bsuggestCircular=no\b/suggestCircular=yes/;
+        $desc .= " circular=true overhang=$rem";
+        $fixed->desc($desc);
+      }
+      return $fixed;
     }
   }
 
@@ -229,10 +237,11 @@ sub setOptions {
     {OPT=>"version!",   VAR=>\&version,   DESC=>"Print version and exit"},
     {OPT=>"check!",     VAR=>\$check,     DESC=>"Check dependencies and exit"},
     {OPT=>"test!",      VAR=>\&run_test,  DESC=>"Run a small test and exit"},
+    {OPT=>"force!",     VAR=>\$force,     DEFAULT=>0, DESC=>"Force overwite of existing"},
     {OPT=>"outdir=s",   VAR=>\$outdir,    DEFAULT=>'', DESC=>"Output folder"},
     {OPT=>"readlen=i",  VAR=>\$readlen,   DEFAULT=>30_000, DESC=>"Approximate read length"},
-    {OPT=>"force!",     VAR=>\$force,     DEFAULT=>0, DESC=>"Force overwite of existing"},
     {OPT=>"keepfiles!", VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
+    {OPT=>"noanno!",    VAR=>\$noanno,    DEFAULT=>0, DESC=>"Don't annotate FASTA with circular=true"},
   );
 
   @ARGV or usage(1);

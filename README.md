@@ -74,6 +74,12 @@ Filename | Format | Description
 02.trimmed.fa | FASTA | The (possibly) trimmed sequences
 03.results.tab | TSV | Summary of results
 
+The `02.trimmed.fa` output has been augmented with new header data (unless `--noanno` used):
+* `circular=true` - inform that this is a circular sequence (Rebaler uses this)
+* `overhang=N` - informs that N bp were trimmed off
+* `len=N` - the new contig length if it was present (Canu adds this)
+* `suggestCircular=yes` if the `no` version was present (Canu adds this)
+
 ## Etymology
 
 [Berocca](https://en.wikipedia.org/wiki/Berocca) is a brand of effervescent drink and vitamin tablets containing vitamin B and C.
