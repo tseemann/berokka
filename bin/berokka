@@ -22,7 +22,7 @@ my @DEP_FILE = (qw[dnaA.fna controls.fna]); # in $APPDIR/db/
 
 # Options
 my(@Options, $debug, $version, $force, $check, $test,
-             $outdir, $readlen, $keepfiles, $noanno);
+             $outdir, $readlen, $keepfiles, $noanno, $filter);
 setOptions();
 
 # Check options
@@ -43,20 +43,32 @@ chdir($outdir);
 my $fout1 = Bio::SeqIO->new(-file=>">01.input.fa", -format=>'fasta');
 my $fout2 = Bio::SeqIO->new(-file=>">02.trimmed.fa", -format=>'fasta');
 open my $log, '>', "03.results.tab";
-print $log "#sequence\told_len\tnew_len\ttrimmed\n";
+print $log "#sequence\tstatus\told_len\tnew_len\ttrimmed\n";
 my $nseq=0;
 for my $fname (@FASTA) {
   my $fasta = Bio::SeqIO->new(-file=>$fname, -format=>'fasta');
   while (my $seq = $fasta->next_seq) {
     $nseq++;
-    msg("*** [$nseq]", $seq->id, "***");
+    my $label = "[$nseq] ".$seq->id;
     $fout1->write_seq($seq);
-    my $new = check_overhang($nseq, $seq);
-    $fout2->write_seq( $new ? $new : $seq );
+    if ($filter and my $match = is_control($nseq, $seq)) {
+      msg($label, "- REMOVED ($match)");
+      next;
+    }
+    else {
+      my $new = trim_overhang($nseq, $seq);
+      if ($new) {
+        my $chopped = $seq->length - $new->length;
+        msg($label, "- TRIMMED ($chopped bp)");
+        $fout2->write_seq($new);
+      }
+      else {
+        msg($label, "- UNCHANGED");
+        $fout2->write_seq($seq);
+      }
+    }
   }
 }
-
-#msg("Loaded $id sequences.");
 
 unless ($keepfiles) {
   for my $i (1 .. $nseq) {
@@ -73,7 +85,6 @@ msg("Returning to original folder: $cwd");
 chdir($cwd);
 msg("Results in: $outdir");
 
-
 # Say our goodbyes
 my @motd = (
   "May all your replicons circularise.",
@@ -89,60 +100,87 @@ msg("Done.");
 
 exit(0);
 
-
 #----------------------------------------------------------------------
-sub check_overhang {
+sub trim_overhang {
   my($id, $seq) = @_;
   my $len = int( min( $seq->length, $readlen) );
-  msg("Using first $len bp to BLAST");
+  msg("Using first $len bp to BLAST") if $debug;
   seq_to_fasta( "$id.fa", $seq );
   seq_to_fasta( "$id.head.fa", $seq->trunc(1, $len) );
   my $blastn_opt = "-evalue 1E-6 -dust no";
   run_cmd("blastn -query $id.head.fa -subject $id.fa -out $id.bls $blastn_opt");
   my $bls = Bio::SearchIO->new(-file=>"$id.bls", -format=>'blast');
   my $res = $bls->next_result or goto NOTRIM;
-  my $hit = $res->next_hit;
+  my $hit = $res->next_hit or goto NOTRIM;
   my $self_hsp = $hit->next_hsp; # 1st HSP is always to itself
 
   while (my $hsp = $hit->next_hsp) {
-    msg(
-      "blastn:", $hsp->start('query')."..".$hsp->end('query')."/".$res->query_length,
-      "(".($hsp->strand('query') > 0 ? '+' : '-').")",
-      "aligns to",
-      $hsp->start('subject')."..".$hsp->end('subject')."/".$hit->length,
-      "(".($hsp->strand('subject') > 0 ? '+' : '-').")",
-      "at",
-      sprintf("%.1f %%id", 100*$hsp->frac_identical('total') ),
-    );
+    print_blast($res, $hit, $hsp, "TRIM") if $debug;
     if ($hsp->start('query') < 5
         and $hsp->end('subject') == $hit->length
         and $hsp->strand('query') > 0
         and $hsp->strand('subject') > 0) {
       my $end =  $hsp->start('subject') - $hsp->start('query');
-      my $rem = $hit->length - $end + 1;
-      msg($res->query_name,"keep 1..$end/".$hit->length, "(remove $rem bp)");
-      print $log join("\t", $res->query_name, $hit->length, $end, $rem),"\n";
+      my $rem = $hit->length - $end;
+      msg($res->query_name,"keep 1..$end/".$hit->length, "(remove $rem bp)") if $debug;
+      print $log join("\t", $res->query_name, 'trimmed', $hit->length, $end, $rem),"\n";
       my $fixed = $seq->trunc(1, $end);
       unless ($noanno) {
         my $desc = $seq->desc();
         $desc =~ s/\blen=(\d+)\b/len=$end/;
         $desc =~ s/\bsuggestCircular=no\b/suggestCircular=yes/;
+        $desc =~ s/\bclass=contig\b/class=replicon/;
         $desc .= " circular=true overhang=$rem";
         $fixed->desc($desc);
       }
       return $fixed;
     }
   }
-
-  msg($res->query_name, "- COULD NOT TRIM");
-  print $log join("\t", $res->query_name, $hit->length, $hit->length, 0),"\n";
+NOTRIM:
+  print $log join("\t", $res->query_name, 'kept', $hit->length, $hit->length, 0),"\n";
   return;
+}
+
+#----------------------------------------------------------------------
+sub is_control {
+  my($id, $seq) = @_;
+  seq_to_fasta( "$id.fa", $seq ) unless -r "$id.fa";  # created by trim_overhang
+  my $blastn_opt = "-evalue 1E-6 -dust no";
+  run_cmd("blastn -query $APPDIR/db/controls.fna -subject $id.fa -out $id.ctl.bls $blastn_opt");
+  my $bls = Bio::SearchIO->new(-file=>"$id.ctl.bls", -format=>'blast');
+  while (my $res = $bls->next_result) {
+    while (my $hit = $res->next_hit) {
+      while (my $hsp = $hit->next_hsp) {
+        print_blast($res, $hit, $hsp, "FILTER[".$res->query_name."]") if $debug;
+      }
+      if ($hit->frac_aligned_query > 0.5) {
+        print $log join("\t", $hit->name, 'removed', $hit->length, 0, 0),"\n";
+        return $res->query_description;
+      }
+    }
+  }
+  return;
+}
+
+#----------------------------------------------------------------------
+sub print_blast {
+  my($res, $hit, $hsp, $label) = @_;
+  $label ||= $hsp->algorithm;
+  msg(
+    "$label:", $hsp->start('query')."..".$hsp->end('query')."/".$res->query_length,
+    "(".($hsp->strand('query') > 0 ? '+' : '-').")",
+    "aligns to",
+    $hsp->start('subject')."..".$hsp->end('subject')."/".$hit->length,
+    "(".($hsp->strand('subject') > 0 ? '+' : '-').")",
+    "at",
+    sprintf("%.1f %%id", 100*$hsp->frac_identical('total') ),
+  );
 }
 
 #----------------------------------------------------------------------
 sub seq_to_fasta {
   my($fname, $seq) = @_;
-  msg("Writing", $seq->id, "(", $seq->length, "bp ) to $fname");
+  msg("Writing", $seq->id, "(", $seq->length, "bp ) to $fname") if $debug;
   my $out = Bio::SeqIO->new(-file=>">$fname", -format=>'fasta', -flush=>1);
   $out->write_seq($seq);
 }
@@ -198,8 +236,8 @@ sub run_test {
 
 #----------------------------------------------------------------------
 sub run_cmd ($) {
-  my($cmd, $quiet) = @_;
-  msg("Running: $cmd") unless $quiet;
+  my($cmd) = @_;
+  msg("Running: $cmd") if $debug;
   system($cmd)==0 or err("Error $? running command");
 }
 
@@ -247,6 +285,7 @@ sub setOptions {
     {OPT=>"readlen=i",  VAR=>\$readlen,   DEFAULT=>30_000, DESC=>"Approximate read length"},
     {OPT=>"keepfiles!", VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
     {OPT=>"noanno!",    VAR=>\$noanno,    DEFAULT=>0, DESC=>"Don't annotate FASTA with circular=true"},
+    {OPT=>"filter=s",   VAR=>\$filter,    DEFAULT=>"$APPDIR/db/controls.fna", DESC=>"Remove contigs matching these sequences"},
   );
 
   @ARGV or usage(1);

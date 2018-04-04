@@ -50,11 +50,12 @@ Input should be completed long-read assemblies in FASTA format, such as those fr
 or
 [HGAP](https://github.com/PacificBiosciences/Bioinformatics-Training/wiki/HGAP-in-SMRT-Analysis).
 
-### Command line
+### Usage
 
 ```
 % berokka --outdir trimdir canu.contigs.fasta
 <snip>
+Did you know? berokka is a play on the concept of overhang vs hangover
 
 % ls trimdir/
 01.input.fa
@@ -63,11 +64,13 @@ or
 
 % cat trimdir/03.results.tab
 
-#sequence   old_len new_len trimmed
-tig00000000 5461026 5448790 12237
-tig00000001  234319  207334 26986
-tig00000002  138825  113601 25225
-tig00000003   57075   43297 13779
+#sequence       status  old_len new_len trimmed
+tig00000000     trimmed 5461026 5448790 12236
+tig00000002     trimmed 138825  113601  25224
+tig00000003     trimmed 57075   43297   13778
+tig00000004     kept    24900   24900   0
+tig00000006     trimmed 1620    1320    300
+tig00000007     removed 2380    0       0
 ```
 
 ### Output
@@ -83,6 +86,21 @@ The `02.trimmed.fa` output has been augmented with new header data (unless `--no
 * `overhang=N` - informs that N bp were trimmed off
 * `len=N` - the new contig length if it was present (Canu adds this)
 * `suggestCircular=yes` if the `no` version was present (Canu adds this)
+* `class=replicon` if the `class=contig` was present *and* we circularised
+
+### Options
+
+* `--filter <FASTA>` allows you to remove contigs which match 50% of sequences in this file.
+Berokka comes with the standard Pacbio control sequence. You can provide your own FASTA file
+using this option. If you want to disable filtering, use `--filter 0`.
+
+* `--readlen LENGTH` can be used for datasets that won't seem to circularise. 
+It affects the length of the match it attempts to make using BLAST.
+
+* `--noanno` will ensure that the FASTA descriptions are not altered between the input
+and output FASTA files.
+
+* `--keepfiles` and `--debug` are primarily for use by the developer.
 
 ## Etymology
 
@@ -105,4 +123,3 @@ Not published yet.
 ## Authors
 
 * Torsten Seemann
-* Anna Syme
