@@ -9,14 +9,16 @@ use File::Path qw(make_path);
 use File::Temp qw(tempfile tempdir);
 use List::Util qw(min max);
 use File::Basename;
-use Cwd;
+use Cwd qw(realpath getcwd);
 
 # Globals
 my $EXE = basename($0);
 my $VERSION = "0.2-dev";
 my $URL = "https://github.com/tseemann/berokka";
 my $AUTHOR = 'Torsten Seemann';
-my $APPDIR = "$FindBin::RealBin/..";
+my $APPDIR = realpath( "$FindBin::RealBin/.." );
+my @DEP_EXE = (qw[blastn]);
+my @DEP_FILE = (qw[dnaA.fna controls.fna]); # in $APPDIR/db/
 
 # Options
 my(@Options, $debug, $version, $force, $check, $test,
@@ -149,12 +151,9 @@ sub seq_to_fasta {
 sub make_folder {
   my($outdir) = @_;
   if (-d $outdir) {
-    if ($force) {
-      msg("Will overwrite contents of --outdir $outdir as you asked.");
-    }
-    else {
-      err("Folder '$outdir' already exists. Try using the --force");
-    }
+    $force ? msg("Will overwrite contents of --outdir $outdir as you asked.")
+           : err("Folder '$outdir' already exists. Try using the --force")
+           ;
   }
   make_path($outdir);
 }
@@ -164,7 +163,7 @@ sub check_deps ($) {
   my($exit) = @_;
   msg("Checking dependencies of $EXE:") if $exit;
   # Check we have the required binaries
-  for my $exe (qw(blastn)) {
+  for my $exe (@DEP_EXE) {
     my $fullexe = find_exe($exe);
     if ($fullexe) {
       msg("Using $exe - $fullexe");
@@ -173,6 +172,12 @@ sub check_deps ($) {
       err("Could not find '$exe' - please install it.");
     }
   }
+  for my $fna (@DEP_FILE) {
+    my $dbfile = "$APPDIR/db/$fna";
+    -r $dbfile or err("Missing database file '$dbfile'");
+    msg("Found database file $fna:", $dbfile);
+  }
+
   if ($exit) {
     msg("Ok.");
     exit(0);
@@ -215,7 +220,7 @@ sub msg {
 
 #----------------------------------------------------------------------
 sub err {
-  msg(@_);
+  msg("ERROR:", @_);
   exit(1);
 }
 
