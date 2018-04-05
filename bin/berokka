@@ -73,7 +73,7 @@ for my $fname (@FASTA) {
 unless ($keepfiles) {
   for my $i (1 .. $nseq) {
     my(@patt) = ("$i.fa", "$i.head.fa", "$i.bls");
-    msg("Removing temporary files: @patt");
+    msg("Removing temporary files: @patt") if $debug;
     unlink @patt;
   }
 }
