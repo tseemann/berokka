@@ -21,7 +21,7 @@ my @DEP_EXE = (qw[blastn]);
 my @DEP_FILE = (qw[dnaA.fna controls.fna]); # in $APPDIR/db/
 
 # Options
-my(@Options, $debug, $version, $force, $check, $test,
+my(@Options, $debug, $version, $force, $check, $test, $fuzz,
              $outdir, $readlen, $keepfiles, $noanno, $filter);
 setOptions();
 
@@ -116,8 +116,8 @@ sub trim_overhang {
 
   while (my $hsp = $hit->next_hsp) {
     print_blast($res, $hit, $hsp, "TRIM") if $debug;
-    if ($hsp->start('query') < 5
-        and $hsp->end('subject') == $hit->length
+    if ($hsp->start('query') <= $fuzz
+        and $hsp->end('subject') >= $hit->length - $fuzz
         and $hsp->strand('query') > 0
         and $hsp->strand('subject') > 0) {
       my $end =  $hsp->start('subject') - $hsp->start('query');
@@ -282,7 +282,8 @@ sub setOptions {
     {OPT=>"test!",      VAR=>\&run_test,  DESC=>"Run a small test and exit"},
     {OPT=>"force!",     VAR=>\$force,     DEFAULT=>0, DESC=>"Force overwite of existing"},
     {OPT=>"outdir=s",   VAR=>\$outdir,    DEFAULT=>'', DESC=>"Output folder"},
-    {OPT=>"readlen=i",  VAR=>\$readlen,   DEFAULT=>30_000, DESC=>"Approximate read length"},
+    {OPT=>"readlen=i",  VAR=>\$readlen,   DEFAULT=>60_000, DESC=>"Approximate max read length"},
+    {OPT=>"fuzz=i",     VAR=>\$fuzz,      DEFAULT=>5, DESC=>"Accept local alignment within --fuzz bp of global"},
     {OPT=>"keepfiles!", VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
     {OPT=>"noanno!",    VAR=>\$noanno,    DEFAULT=>0, DESC=>"Don't annotate FASTA with circular=true"},
     {OPT=>"filter=s",   VAR=>\$filter,    DEFAULT=>"$APPDIR/db/controls.fna", DESC=>"Remove contigs matching these sequences"},
