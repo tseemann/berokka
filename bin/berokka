@@ -13,7 +13,7 @@ use Cwd qw(realpath getcwd);
 
 # Globals
 my $EXE = basename($0);
-my $VERSION = "0.2-dev";
+my $VERSION = "0.2";
 my $URL = "https://github.com/tseemann/berokka";
 my $AUTHOR = 'Torsten Seemann';
 my $APPDIR = realpath( "$FindBin::RealBin/.." );
