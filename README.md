@@ -18,8 +18,7 @@ You should only try Berokka if:
 2. Your contigs are simple cases with clear overhang and could be done manually with BLAST
 3. Circlator fails on your data even after [troubleshooting](https://github.com/sanger-pathogens/circlator/wiki/Troubleshooting)
 
-**NOTE:** orientation to *dnaA* or *rep* genes is not yet implemented,
-nor is filtering against Pacbio control sequences.
+**NOTE:** orientation to *dnaA* or *rep* genes is not yet implemented.
 
 ## Installation
 
