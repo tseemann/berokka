@@ -26,12 +26,12 @@ nor is filtering against Pacbio control sequences.
 Using Homebrew will install all the dependencies for you:
 [Linux](http://linuxbrew.sh) or [MacOS](http://brew.sh)
 ```
-brew install brewsci/bio/berokka  # COMING SOON!
+brew install brewsci/bio/berokka
 ```
 
 ### Conda
 ```
-conda -c bioconda -c conda-forge berokka  # COMING SOON!
+conda install -c bioconda  berokka
 ```
 
 ### Source
