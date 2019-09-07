@@ -5,11 +5,14 @@ sudo: false
 perl:
     - "5.26"
 
+env:
+  - BLASTVER=2.9.0
+
 install:
     - "cpanm --quiet --notest Bio::Perl"
-    - "wget ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.7.1/ncbi-blast-2.7.1+-x64-linux.tar.gz"
-    - "tar zxvf ncbi-blast-2.7.1+-x64-linux.tar.gz"
-    - "export PATH=$PWD/bin:$PWD/ncbi-blast-2.7.1+/bin:$PATH"
+    - "wget http://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/${BLASTVER}/ncbi-blast-${BLASTVER}+-x64-linux.tar.gz"
+    - "tar zxvf ncbi-blast-${BLASTVER}+-x64-linux.tar.gz"
+    - "export PATH=$PWD/bin:$PWD/ncbi-blast-${BLASTVER}+/bin:$PATH"
 
 script:
     - "berokka --version"
