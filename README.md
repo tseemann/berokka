@@ -30,8 +30,10 @@ brew install brewsci/bio/berokka
 ```
 
 ### Conda
+Using [Bioconda](https://bioconda.github.io/user/install.html#install-conda)) 
+will take care of everything:
 ```
-conda install -c bioconda  berokka
+conda install -c conda-forge -c bioconda -c defaults berokka
 ```
 
 ### Source
