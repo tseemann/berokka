@@ -13,7 +13,7 @@ use Cwd qw(realpath getcwd);
 
 # Globals
 my $EXE = basename($0);
-my $VERSION = "0.2.2";
+my $VERSION = "0.2.3";
 my $URL = "https://github.com/tseemann/berokka";
 my $AUTHOR = 'Torsten Seemann';
 my $APPDIR = realpath( "$FindBin::RealBin/.." );
@@ -297,17 +297,17 @@ sub setOptions {
 
   @Options = (
     {OPT=>"help",       VAR=>\&usage,     DESC=>"This help"},
-    {OPT=>"debug!",     VAR=>\$debug,     DEFAULT=>0, DESC=>"Debug info"},
+    {OPT=>"debug!",     VAR=>\$debug,     DESC=>"Debug info"},
     {OPT=>"version!",   VAR=>\&version,   DESC=>"Print version and exit"},
     {OPT=>"check!",     VAR=>\$check,     DESC=>"Check dependencies and exit"},
     {OPT=>"test!",      VAR=>\&run_test,  DESC=>"Run a small test and exit"},
-    {OPT=>"force!",     VAR=>\$force,     DEFAULT=>0, DESC=>"Force overwite of existing"},
+    {OPT=>"force!",     VAR=>\$force,     DESC=>"Force overwite of existing"},
     {OPT=>"outdir=s",   VAR=>\$outdir,    DEFAULT=>'', DESC=>"Output folder"},
     {OPT=>"readlen=i",  VAR=>\$readlen,   DEFAULT=>60_000, DESC=>"Approximate max read length"},
     {OPT=>"fuzz=i",     VAR=>\$fuzz,      DEFAULT=>5, DESC=>"Accept local alignment within --fuzz bp of global"},
-    {OPT=>"keepfiles!", VAR=>\$keepfiles, DEFAULT=>0, DESC=>"Keep intermediate files"},
-    {OPT=>"noanno!",    VAR=>\$noanno,    DEFAULT=>0, DESC=>"Don't annotate FASTA with circular=true"},
-    {OPT=>"filter=s",   VAR=>\$filter,    DEFAULT=>"$APPDIR/db/controls.fna", DESC=>"Remove contigs matching these sequences"},
+    {OPT=>"keepfiles!", VAR=>\$keepfiles, DESC=>"Keep intermediate files"},
+    {OPT=>"noanno!",    VAR=>\$noanno,    DESC=>"Don't annotate FASTA with circular=true"},
+    {OPT=>"filter=s",   VAR=>\$filter,    DEFAULT=>"$APPDIR/db/controls.fna", DESC=>"Contaminants to remove"},
   );
 
   @ARGV or usage(1);
@@ -338,9 +338,9 @@ sub usage {
     $opt =~ s/=i$/ [N]/;
     $opt =~ s/=f$/ [n.n]/;
     printf "  --%-13s %s%s.\n", $opt, $_->{DESC},
-           defined($_->{DEFAULT}) ? " (default '$_->{DEFAULT}')" : "";
+           defined($_->{DEFAULT}) ? " [$_->{DEFAULT}]" : "";
   }
-  print "AUTHOR\n  $AUTHOR | $URL\n";
+  print "HOMEPAGE\n  $URL\n";
   exit($exitcode);
 }
 
